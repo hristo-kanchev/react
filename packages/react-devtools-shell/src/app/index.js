@@ -10,6 +10,7 @@ import {
 import DeeplyNestedComponents from './DeeplyNestedComponents';
 import Iframe from './Iframe';
 import EditableProps from './EditableProps';
+import ErrorBoundaries from './ErrorBoundaries';
 import ElementTypes from './ElementTypes';
 import Hydration from './Hydration';
 import InspectableElements from './InspectableElements';
@@ -47,18 +48,19 @@ function mountHelper(App) {
 }
 
 function mountTestApp() {
-  mountHelper(ToDoList);
-  mountHelper(InteractionTracing);
-  mountHelper(InspectableElements);
-  mountHelper(Hydration);
-  mountHelper(ElementTypes);
-  mountHelper(EditableProps);
-  mountHelper(PriorityLevels);
-  mountHelper(ReactNativeWeb);
-  mountHelper(Toggle);
-  mountHelper(SuspenseTree);
-  mountHelper(DeeplyNestedComponents);
-  mountHelper(Iframe);
+  // mountHelper(ToDoList);
+  // mountHelper(InteractionTracing);
+  // mountHelper(InspectableElements);
+  // mountHelper(Hydration);
+  // mountHelper(ElementTypes);
+  // mountHelper(EditableProps);
+  // mountHelper(PriorityLevels);
+  // mountHelper(ReactNativeWeb);
+  // mountHelper(Toggle);
+  mountHelper(ErrorBoundaries);
+  // mountHelper(SuspenseTree);
+  // mountHelper(DeeplyNestedComponents);
+  // mountHelper(Iframe);
 }
 
 function unmountTestApp() {

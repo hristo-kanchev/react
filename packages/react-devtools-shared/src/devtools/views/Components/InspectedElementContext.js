@@ -199,8 +199,10 @@ function InspectedElementContextController({children}: Props) {
           const {
             canEditFunctionProps,
             canEditHooks,
+            canToggleError,
             canToggleSuspense,
             canViewSource,
+            isErrored,
             hasLegacyContext,
             source,
             type,
@@ -214,8 +216,10 @@ function InspectedElementContextController({children}: Props) {
           const inspectedElement: InspectedElementFrontend = {
             canEditFunctionProps,
             canEditHooks,
+            canToggleError,
             canToggleSuspense,
             canViewSource,
+            isErrored,
             hasLegacyContext,
             id,
             source,

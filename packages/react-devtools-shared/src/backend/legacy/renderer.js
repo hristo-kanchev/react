@@ -779,6 +779,8 @@ export function attach(
       // Suspense did not exist in legacy versions
       canToggleSuspense: false,
 
+      canToggleError: false,
+
       // Can view component source location.
       canViewSource: type === ElementTypeClass || type === ElementTypeFunction,
 

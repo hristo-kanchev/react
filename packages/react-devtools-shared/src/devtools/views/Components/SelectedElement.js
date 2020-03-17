@@ -120,14 +120,66 @@ export default function SelectedElement(_: Props) {
     (canViewElementSourceFunction === null ||
       canViewElementSourceFunction(inspectedElement));
 
+  const isErrored =
+    inspectedElement != null && inspectedElement.isErrored;
+
   const isSuspended =
     element !== null &&
     element.type === ElementTypeSuspense &&
     inspectedElement != null &&
     inspectedElement.state != null;
 
+  const canToggleError =
+    inspectedElement != null && inspectedElement.canToggleError;
+
   const canToggleSuspense =
     inspectedElement != null && inspectedElement.canToggleSuspense;
+
+  const toggleErrored = useCallback(() => {
+    let nearestErrorBoundary = null;
+    let currentElement = element;
+    while (currentElement !== null) {
+      if (currentElement.isErrorBoundary) {
+        nearestErrorBoundary = currentElement;
+        break;
+      } else if (currentElement.parentID > 0) {
+        currentElement = store.getElementByID(currentElement.parentID);
+      } else {
+        currentElement = null;
+      }
+    }
+
+    // If we didn't find an error boundary ancestor, we can't throw.
+    // Instead we can show a warning to the user.
+    if (nearestErrorBoundary === null) {
+      modalDialogDispatch({
+        type: 'SHOW',
+        content: <CannotThrowWarningMessage />,
+      });
+    } else {
+      const nearestErrorBoundaryID = nearestErrorBoundary.id;
+
+      // If we're suspending from an arbitrary (non-Suspense) component, select the nearest ErrorBoundary element in the Tree.
+      // This way when the fallback UI is shown and the current element is hidden, something meaningful is selected.
+      if (nearestErrorBoundary !== element) {
+        dispatch({
+          type: 'SELECT_ELEMENT_BY_ID',
+          payload: nearestErrorBoundaryID,
+        });
+      }
+
+      const rendererID = store.getRendererIDForElement(nearestErrorBoundaryID);
+
+      // Toggle error.
+      if (rendererID !== null) {
+        bridge.send('overrideError', {
+          id: nearestErrorBoundaryID,
+          rendererID,
+          forceError: !isErrored,
+        });
+      }
+    }
+  }, [bridge, dispatch, element, isErrored, modalDialogDispatch, store]);
 
   // TODO (suspense toggle) Would be nice to eventually use a two setState pattern here as well.
   const toggleSuspended = useCallback(() => {
@@ -194,6 +246,20 @@ export default function SelectedElement(_: Props) {
             {element.displayName}
           </div>
         </div>
+
+        {canToggleError && (
+          <Toggle
+            className={styles.IconButton}
+            isChecked={isErrored}
+            onChange={toggleErrored}
+            title={
+              isErrored
+                ? 'Clear the forced error'
+                : 'Force the selected component into an errored state'
+            }>
+            <ButtonIcon type="error" />
+          </Toggle>
+        )}
 
         {canToggleSuspense && (
           <Toggle
@@ -546,6 +612,35 @@ function OwnerView({
       <Badge hocDisplayNames={hocDisplayNames} type={type} />
     </Button>
   );
+}
+
+function CannotThrowWarningMessage() {
+  const store = useContext(StoreContext);
+  const areClassComponentsHidden = !!store.componentFilters.find(
+    filter =>
+      filter.type === ComponentFilterElementType &&
+      filter.value === ElementTypeClass &&
+      filter.isEnabled,
+  );
+
+  // Has the user filted out class nodes from the tree?
+  // If so, the selected element might actually be in an error boundary,
+  // but we have no way to know.
+  if (areClassComponentsHidden) {
+    return (
+      <div className={styles.CannotSuspendWarningMessage}>
+        Error state cannot be toggled while class components are hidden. Disable
+        the filter and try agan.
+      </div>
+    );
+  } else {
+    return (
+      <div className={styles.CannotSuspendWarningMessage}>
+        The selected element is not within an error boundary. Breaking it would
+        cause an error.
+      </div>
+    );
+  }
 }
 
 function CannotSuspendWarningMessage() {

@@ -750,6 +750,7 @@ export default class Store extends EventEmitter<{|
             );
           }
 
+          let isErrorBoundary: boolean = false;
           let ownerID: number = 0;
           let parentID: number = ((null: any): number);
           if (type === ElementTypeRoot) {
@@ -792,6 +793,9 @@ export default class Store extends EventEmitter<{|
             ownerID = ((operations[i]: any): number);
             i++;
 
+            isErrorBoundary = ((operations[i]: any): number) > 0;
+            i++;
+
             const displayNameStringID = operations[i];
             const displayName = stringTable[displayNameStringID];
             i++;
@@ -830,6 +834,7 @@ export default class Store extends EventEmitter<{|
               hocDisplayNames,
               id,
               isCollapsed: this._collapseNodesByDefault,
+              isErrorBoundary,
               key,
               ownerID,
               parentID: parentElement.id,

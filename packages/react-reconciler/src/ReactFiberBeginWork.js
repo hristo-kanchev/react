@@ -117,7 +117,7 @@ import {
   registerSuspenseInstanceRetry,
 } from './ReactFiberHostConfig';
 import type {SuspenseInstance} from './ReactFiberHostConfig';
-import {shouldSuspend} from './ReactFiberReconciler';
+import {shouldError, shouldSuspend} from './ReactFiberReconciler';
 import {pushHostContext, pushHostContainer} from './ReactFiberHostContext';
 import {
   suspenseStackCursor,
@@ -791,6 +791,13 @@ function updateClassComponent(
   nextProps,
   renderExpirationTime: ExpirationTime,
 ) {
+  // This is used by DevTools to force a boundary to suspend.
+  if (__DEV__) {
+    if (shouldError(workInProgress)) {
+      workInProgress.effectTag |= DidCapture;
+    }
+  }
+
   if (__DEV__) {
     if (workInProgress.type !== workInProgress.elementType) {
       // Lazy component props can't be validated in createElement

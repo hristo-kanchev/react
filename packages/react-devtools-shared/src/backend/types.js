@@ -75,6 +75,7 @@ export type ReactRenderer = {
   ) => void,
   // 16.9+
   scheduleUpdate?: ?(fiber: Object) => void,
+  setErrorHandler?: ?(shouldError: (fiber: Object) => boolean) => void,
   setSuspenseHandler?: ?(shouldSuspend: (fiber: Object) => boolean) => void,
   // Only injected by React v16.8+ in order to support hooks inspection.
   currentDispatcherRef?: {|current: null | Dispatcher|},

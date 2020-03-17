@@ -132,6 +132,7 @@ type ReactTypeOfWorkType = {|
 |};
 
 type ReactTypeOfSideEffectType = {|
+  DidCapture: number,
   NoEffect: number,
   PerformedWork: number,
   Placement: number,
@@ -174,6 +175,7 @@ export function getInternalReactConstants(
   };
 
   const ReactTypeOfSideEffect: ReactTypeOfSideEffectType = {
+    DidCapture: 0b1000000, // TODO: Figure this out.
     NoEffect: 0b00,
     PerformedWork: 0b01,
     Placement: 0b10,
@@ -450,7 +452,12 @@ export function attach(
     ReactSymbols,
     ReactTypeOfSideEffect,
   } = getInternalReactConstants(renderer.version);
-  const {NoEffect, PerformedWork, Placement} = ReactTypeOfSideEffect;
+  const {
+    DidCapture,
+    NoEffect,
+    PerformedWork,
+    Placement,
+  } = ReactTypeOfSideEffect;
   const {
     FunctionComponent,
     ClassComponent,
@@ -494,9 +501,14 @@ export function attach(
   const {
     overrideHookState,
     overrideProps,
+    setErrorHandler,
     setSuspenseHandler,
     scheduleUpdate,
   } = renderer;
+  const supportsTogglingError =
+    typeof setErrorHandler === 'function' &&
+    typeof scheduleUpdate === 'function';
+
   const supportsTogglingSuspense =
     typeof setSuspenseHandler === 'function' &&
     typeof scheduleUpdate === 'function';
@@ -1142,6 +1154,23 @@ export function attach(
     return stringID;
   }
 
+  function isErrorBoundary(fiber: Fiber): boolean {
+    const {tag, type} = fiber;
+
+    switch (tag) {
+      case ClassComponent:
+      case IncompleteClassComponent:
+        const instance = fiber.stateNode;
+        return (
+          typeof type.getDerivedStateFromError === 'function' ||
+          (instance !== null &&
+            typeof instance.componentDidCatch === 'function')
+        );
+      default:
+        return false;
+    }
+  }
+
   function recordMount(fiber: Fiber, parentFiber: Fiber | null) {
     const isRoot = fiber.tag === HostRoot;
     const id = getFiberID(getPrimaryFiber(fiber));
@@ -1185,6 +1214,7 @@ export function attach(
       pushOperation(elementType);
       pushOperation(parentID);
       pushOperation(ownerID);
+      pushOperation(isErrorBoundary(fiber) ? 1 : 0);
       pushOperation(displayNameStringID);
       pushOperation(keyStringID);
     }
@@ -1472,6 +1502,7 @@ export function attach(
     }
   }
 
+  // TODO: Try and trigger the error here.
   // Returns whether closest unfiltered fiber parent needs to reset its child list.
   function updateFiberRecursively(
     nextFiber: Fiber,
@@ -2352,6 +2383,8 @@ export function attach(
       }
     }
 
+    const isErrored = (fiber.effectTag & DidCapture) !== NoEffect;
+
     return {
       id,
 
@@ -2360,6 +2393,9 @@ export function attach(
 
       // Does the current renderer support editable function props?
       canEditFunctionProps: typeof overrideProps === 'function',
+
+      canToggleError:
+        supportsTogglingError && (!isErrored || forceErrorForFiberIDs.has(id)),
 
       canToggleSuspense:
         supportsTogglingSuspense &&
@@ -2371,6 +2407,9 @@ export function attach(
 
       // Can view component source location.
       canViewSource,
+
+      // Is this error boundary in error state.
+      isErrored,
 
       // Does the component have legacy context attached to it.
       hasLegacyContext,
@@ -2908,6 +2947,16 @@ export function attach(
   // React will switch between these implementations depending on whether
   // we have any manually suspended Fibers or not.
 
+  function shouldErrorFiberAlwaysFalse() {
+    return false;
+  }
+
+  let forceErrorForFiberIDs = new Set();
+  function shouldErrorFiberAccordingToSet(fiber) {
+    const id = getFiberID(getPrimaryFiber(((fiber: any): Fiber)));
+    return forceErrorForFiberIDs.has(id);
+  }
+
   function shouldSuspendFiberAlwaysFalse() {
     return false;
   }
@@ -2916,6 +2965,34 @@ export function attach(
   function shouldSuspendFiberAccordingToSet(fiber) {
     const id = getFiberID(getPrimaryFiber(((fiber: any): Fiber)));
     return forceFallbackForSuspenseIDs.has(id);
+  }
+
+  function overrideError(id, forceError) {
+    if (
+      typeof setErrorHandler !== 'function' ||
+      typeof scheduleUpdate !== 'function'
+    ) {
+      throw new Error(
+        'Expected overrideError() to not get called for earlier React versions.',
+      );
+    }
+    if (forceError) {
+      forceErrorForFiberIDs.add(id);
+      if (forceErrorForFiberIDs.size === 1) {
+        // First override is added. Switch React to slower path.
+        setErrorHandler(shouldErrorFiberAccordingToSet);
+      }
+    } else {
+      forceErrorForFiberIDs.delete(id);
+      if (forceErrorForFiberIDs.size === 0) {
+        // Last override is gone. Switch React back to fast path.
+        setErrorHandler(shouldErrorFiberAlwaysFalse);
+      }
+    }
+    const fiber = idToFiberMap.get(id);
+    if (fiber != null) {
+      scheduleUpdate(fiber);
+    }
   }
 
   function overrideSuspense(id, forceFallback) {
@@ -3196,6 +3273,7 @@ export function attach(
     logElementToConsole,
     prepareViewAttributeSource,
     prepareViewElementSource,
+    overrideError,
     overrideSuspense,
     renderer,
     setInContext,

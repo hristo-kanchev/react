@@ -422,7 +422,12 @@ export function findHostInstanceWithNoPortals(
   return hostFiber.stateNode;
 }
 
+let shouldErrorImpl = fiber => false;
 let shouldSuspendImpl = fiber => false;
+
+export function shouldError(fiber: Fiber): boolean {
+  return shouldErrorImpl(fiber);
+}
 
 export function shouldSuspend(fiber: Fiber): boolean {
   return shouldSuspendImpl(fiber);
@@ -431,6 +436,7 @@ export function shouldSuspend(fiber: Fiber): boolean {
 let overrideHookState = null;
 let overrideProps = null;
 let scheduleUpdate = null;
+let setErrorHandler = null;
 let setSuspenseHandler = null;
 
 if (__DEV__) {
@@ -501,6 +507,10 @@ if (__DEV__) {
     scheduleWork(fiber, Sync);
   };
 
+  setErrorHandler = (newShouldErrorImpl: Fiber => boolean) => {
+    shouldErrorImpl = newShouldErrorImpl;
+  };
+
   setSuspenseHandler = (newShouldSuspendImpl: Fiber => boolean) => {
     shouldSuspendImpl = newShouldSuspendImpl;
   };
@@ -514,6 +524,7 @@ export function injectIntoDevTools(devToolsConfig: DevToolsConfig): boolean {
     ...devToolsConfig,
     overrideHookState,
     overrideProps,
+    setErrorHandler,
     setSuspenseHandler,
     scheduleUpdate,
     currentDispatcherRef: ReactCurrentDispatcher,

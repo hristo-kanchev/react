@@ -175,7 +175,7 @@ export function getInternalReactConstants(
   };
 
   const ReactTypeOfSideEffect: ReactTypeOfSideEffectType = {
-    DidCapture: 0b1000000, // TODO: Figure this out.
+    DidCapture: 0b1000000,
     NoEffect: 0b00,
     PerformedWork: 0b01,
     Placement: 0b10,
